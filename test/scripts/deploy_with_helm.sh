@@ -158,7 +158,7 @@ fi
 
 # attempt to login, it could take some time for API to be stable
 for i in {1..5}; do
-  if ./bin/flightctl login --insecure-skip-tls-verify https://api.${IP}.nip.io:3443; then
+  if ./bin/flightctl login --insecure-skip-tls-verify https://api.${IP}.nip.io:3443 --web; then
     break
   fi
   sleep 5
