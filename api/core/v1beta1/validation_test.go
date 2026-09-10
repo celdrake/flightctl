@@ -3,6 +3,7 @@ package v1beta1
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"strings"
 	"testing"
 
@@ -3345,6 +3346,179 @@ func newTestVmImageApp(t *testing.T, name, imageRef string) ApplicationProviderS
 	var spec ApplicationProviderSpec
 	require.NoError(t, spec.FromVmApplication(vm))
 	return spec
+}
+
+func testRolloutDeviceSelection(t *testing.T) *RolloutDeviceSelection {
+	limit := &Batch_Limit{}
+	require.NoError(t, limit.FromPercentage(Percentage("50%")))
+	bs := BatchSequence{
+		Strategy: RolloutStrategyBatchSequence,
+		Sequence: &[]Batch{
+			{
+				Limit: limit,
+			},
+		},
+	}
+	selection := &RolloutDeviceSelection{}
+	require.NoError(t, selection.FromBatchSequence(bs))
+	return selection
+}
+
+func TestRolloutPolicyValidate(t *testing.T) {
+	minAvail := 1
+	validDisruptionBudget := &DisruptionBudget{
+		MinAvailable: &minAvail,
+	}
+	validDeviceSelection := testRolloutDeviceSelection(t)
+
+	tests := []struct {
+		name       string
+		policy     *RolloutPolicy
+		wantErr    bool
+		errStrings []string
+	}{
+		{
+			name:    "When rollout policy is nil it should pass validation",
+			policy:  nil,
+			wantErr: false,
+		},
+		{
+			name:       "When rollout policy is empty it should fail validation",
+			policy:     &RolloutPolicy{},
+			wantErr:    true,
+			errStrings: []string{"at least one of the following sections must be configured"},
+		},
+		{
+			name:    "When only deviceSelection is set it should pass validation",
+			policy:  &RolloutPolicy{DeviceSelection: validDeviceSelection},
+			wantErr: false,
+		},
+		{
+			name:    "When only disruptionBudget is set it should pass validation",
+			policy:  &RolloutPolicy{DisruptionBudget: validDisruptionBudget},
+			wantErr: false,
+		},
+		{
+			name: "When deviceSelection and disruptionBudget are set it should pass validation",
+			policy: &RolloutPolicy{
+				DeviceSelection:  validDeviceSelection,
+				DisruptionBudget: validDisruptionBudget,
+			},
+			wantErr: false,
+		},
+		{
+			name:    "When only generateDelta is false it should pass validation",
+			policy:  &RolloutPolicy{GenerateDelta: lo.ToPtr(false)},
+			wantErr: false,
+		},
+		{
+			name:    "When only generateDelta is true it should pass validation",
+			policy:  &RolloutPolicy{GenerateDelta: lo.ToPtr(true)},
+			wantErr: false,
+		},
+		{
+			name:    "When only maxWaitForDelta is set it should pass validation",
+			policy:  &RolloutPolicy{MaxWaitForDelta: lo.ToPtr(Duration("30m"))},
+			wantErr: false,
+		},
+		{
+			name:    "When maxWaitForDelta is 0s it should pass validation",
+			policy:  &RolloutPolicy{MaxWaitForDelta: lo.ToPtr(Duration("0s"))},
+			wantErr: false,
+		},
+		{
+			name:    "When only deltaGenerationTimeout is set it should pass validation",
+			policy:  &RolloutPolicy{DeltaGenerationTimeout: lo.ToPtr(Duration("15m"))},
+			wantErr: false,
+		},
+		{
+			name: "When scheduling and delta settings are combined it should pass validation",
+			policy: &RolloutPolicy{
+				DeviceSelection:        validDeviceSelection,
+				GenerateDelta:          lo.ToPtr(true),
+				MaxWaitForDelta:        lo.ToPtr(Duration("30m")),
+				DeltaGenerationTimeout: lo.ToPtr(Duration("15m")),
+			},
+			wantErr: false,
+		},
+		{
+			name: "When successThreshold is valid it should pass validation",
+			policy: &RolloutPolicy{
+				DeviceSelection:  validDeviceSelection,
+				SuccessThreshold: lo.ToPtr(Percentage("90%")),
+			},
+			wantErr: false,
+		},
+		{
+			name: "When successThreshold is invalid it should fail validation",
+			policy: &RolloutPolicy{
+				DeviceSelection:  validDeviceSelection,
+				SuccessThreshold: lo.ToPtr(Percentage("200%")),
+			},
+			wantErr:    true,
+			errStrings: []string{"rollout policy success threshold"},
+		},
+		{
+			name: "When disruptionBudget is invalid it should fail validation",
+			policy: &RolloutPolicy{
+				DisruptionBudget: &DisruptionBudget{},
+			},
+			wantErr:    true,
+			errStrings: []string{"at least one of [MinAvailable, MaxUnavailable] must be defined"},
+		},
+		{
+			name:       "When maxWaitForDelta has an invalid format it should fail validation",
+			policy:     &RolloutPolicy{MaxWaitForDelta: lo.ToPtr(Duration("30d"))},
+			wantErr:    true,
+			errStrings: []string{"maxWaitForDelta: invalid duration"},
+		},
+		{
+			name:       "When deltaGenerationTimeout is zero it should fail validation",
+			policy:     &RolloutPolicy{DeltaGenerationTimeout: lo.ToPtr(Duration("0s"))},
+			wantErr:    true,
+			errStrings: []string{"deltaGenerationTimeout: duration must be greater than 0"},
+		},
+		{
+			name: "When generateDelta is false and maxWaitForDelta is set it should fail validation",
+			policy: &RolloutPolicy{
+				GenerateDelta:   lo.ToPtr(false),
+				MaxWaitForDelta: lo.ToPtr(Duration("30m")),
+			},
+			wantErr:    true,
+			errStrings: []string{"maxWaitForDelta is ignored when generateDelta is false"},
+		},
+		{
+			name: "When generateDelta is false and deltaGenerationTimeout is set it should fail validation",
+			policy: &RolloutPolicy{
+				GenerateDelta:          lo.ToPtr(false),
+				DeltaGenerationTimeout: lo.ToPtr(Duration("15m")),
+			},
+			wantErr:    true,
+			errStrings: []string{"deltaGenerationTimeout is ignored when generateDelta is false"},
+		},
+		{
+			name: "When only successThreshold is set it should fail validation",
+			policy: &RolloutPolicy{
+				SuccessThreshold: lo.ToPtr(Percentage("90%")),
+			},
+			wantErr:    true,
+			errStrings: []string{"at least one of the following sections must be configured"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.policy.Validate()
+			if tt.wantErr {
+				require.NotEmpty(t, errs)
+				for _, want := range tt.errStrings {
+					assert.ErrorContains(t, errors.Join(errs...), want)
+				}
+				return
+			}
+			require.Empty(t, errs)
+		})
+	}
 }
 
 func TestDisruptionBudgetValidateGroupBy(t *testing.T) {

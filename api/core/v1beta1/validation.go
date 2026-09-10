@@ -61,6 +61,8 @@ var (
 	ErrStaticRoleMappingAdminOnly            = errors.New("only flightctl-admin users are allowed to create static role mappings for flightctl-admin")
 )
 
+var rolloutPolicyDurationPattern = regexp.MustCompile(`^(?:[1-9]\d*)?\d[smh]$`)
+
 type Validator interface {
 	Validate() []error
 }
@@ -602,16 +604,65 @@ func (d *DisruptionBudget) Validate() []error {
 	return errs
 }
 
+func validateRolloutPolicyDuration(d *Duration, fieldName string, allowZero bool) []error {
+	if d == nil {
+		return nil
+	}
+	value := string(*d)
+	if !rolloutPolicyDurationPattern.MatchString(value) {
+		return []error{fmt.Errorf("%s: invalid duration %q: must be a positive integer followed by s, m, or h", fieldName, value)}
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return []error{fmt.Errorf("%s: invalid duration %q: %w", fieldName, value, err)}
+	}
+	if allowZero && parsed < 0 {
+		return []error{fmt.Errorf("%s: duration must be greater than or equal to 0", fieldName)}
+	}
+	if !allowZero && parsed <= 0 {
+		return []error{fmt.Errorf("%s: duration must be greater than 0", fieldName)}
+	}
+	return nil
+}
+
+func validateRolloutPolicyDeltaSettings(r *RolloutPolicy) []error {
+	if r == nil {
+		return nil
+	}
+	generateDelta := true
+	if r.GenerateDelta != nil {
+		generateDelta = *r.GenerateDelta
+	}
+	if !generateDelta {
+		var errs []error
+		if r.MaxWaitForDelta != nil {
+			errs = append(errs, errors.New("maxWaitForDelta must not be set when generateDelta is false"))
+		}
+		if r.DeltaGenerationTimeout != nil {
+			errs = append(errs, errors.New("deltaGenerationTimeout must not be set when generateDelta is false"))
+		}
+		return errs
+	}
+	var errs []error
+	errs = append(errs, validateRolloutPolicyDuration(r.MaxWaitForDelta, "maxWaitForDelta", true)...)
+	errs = append(errs, validateRolloutPolicyDuration(r.DeltaGenerationTimeout, "deltaGenerationTimeout", false)...)
+	return errs
+}
+
 func (r *RolloutPolicy) Validate() []error {
 	var errs []error
 	if r == nil {
 		return nil
 	}
-	if r.DeviceSelection == nil && r.DisruptionBudget == nil {
-		errs = append(errs, errors.New("at least one of [DeviceSelection, DisruptionBudget] must be defined"))
+	hasScheduling := r.DeviceSelection != nil || r.DisruptionBudget != nil
+	hasDeltaSettings := r.GenerateDelta != nil || r.MaxWaitForDelta != nil || r.DeltaGenerationTimeout != nil
+	if !hasScheduling && !hasDeltaSettings {
+		errs = append(errs, errors.New("at least one of the following sections must be configured: [DeviceSelection, DisruptionBudget, DeltaGeneration]"))
+		return errs
 	}
 	errs = append(errs, r.DeviceSelection.Validate()...)
 	errs = append(errs, r.DisruptionBudget.Validate()...)
+	errs = append(errs, validateRolloutPolicyDeltaSettings(r)...)
 	if r.SuccessThreshold != nil {
 		if err := validatePercentage(*r.SuccessThreshold); err != nil {
 			errs = append(errs, fmt.Errorf("rollout policy success threshold: %w", err))
