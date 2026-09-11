@@ -38,9 +38,10 @@ var (
 	}
 	// OCI-specific selectors (only fields unique to OciRepoSpec)
 	ociRepositorySpecSelectors = selectorToTypeMap{
-		selector.NewSelectorName("spec.type"):       selector.String,
-		selector.NewSelectorName("spec.registry"):   selector.String,
-		selector.NewSelectorName("spec.accessMode"): selector.String,
+		selector.NewSelectorName("spec.type"):               selector.String,
+		selector.NewSelectorName("spec.registry"):           selector.String,
+		selector.NewSelectorName("spec.accessMode"):         selector.String,
+		selector.NewSelectorName("spec.deltaStorageTarget"): selector.Bool,
 	}
 	certificateSigningRequestStatusSelectors = selectorToTypeMap{
 		selector.NewSelectorName("status.certificate"): selector.String,

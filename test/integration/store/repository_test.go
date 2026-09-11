@@ -589,6 +589,65 @@ var _ = Describe("RepositoryStore create", func() {
 			Expect(*repositories.Items[0].Metadata.Name).To(Equal("oci-combined-read"))
 		})
 
+		It("List OCI repositories by deltaStorageTarget using FieldSelector", func() {
+			specDelta := api.RepositorySpec{}
+			err := specDelta.FromOciRepoSpec(api.OciRepoSpec{
+				Registry:           "my-registry.com",
+				Type:               api.OciRepoSpecTypeOci,
+				Repository:         lo.ToPtr("my-org/diffs"),
+				DeltaStorageTarget: lo.ToPtr(true),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			repoDelta := api.Repository{
+				Metadata: api.ObjectMeta{
+					Name: lo.ToPtr("oci-delta-target"),
+				},
+				Spec: specDelta,
+			}
+			_, err = repositoryStore.Create(ctx, orgId, &repoDelta)
+			Expect(err).ToNot(HaveOccurred())
+
+			specPlain := api.RepositorySpec{}
+			err = specPlain.FromOciRepoSpec(api.OciRepoSpec{
+				Registry: "registry.example.com",
+				Type:     api.OciRepoSpecTypeOci,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			repoPlain := api.Repository{
+				Metadata: api.ObjectMeta{
+					Name: lo.ToPtr("oci-plain"),
+				},
+				Spec: specPlain,
+			}
+			_, err = repositoryStore.Create(ctx, orgId, &repoPlain)
+			Expect(err).ToNot(HaveOccurred())
+
+			listParams := store.ListParams{
+				Limit:         1000,
+				FieldSelector: selector.NewFieldSelectorFromMapOrDie(map[string]string{"spec.deltaStorageTarget": "true"}),
+			}
+			repositories, err := repositoryStore.List(ctx, orgId, listParams)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(repositories.Items)).To(Equal(1))
+			Expect(*repositories.Items[0].Metadata.Name).To(Equal("oci-delta-target"))
+
+			ociSpec, err := repositories.Items[0].Spec.AsOciRepoSpec()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ociSpec.DeltaStorageTarget).ToNot(BeNil())
+			Expect(*ociSpec.DeltaStorageTarget).To(BeTrue())
+
+			listParams.FieldSelector = selector.NewFieldSelectorFromMapOrDie(map[string]string{
+				"spec.type":               "oci",
+				"spec.deltaStorageTarget": "true",
+			})
+			repositories, err = repositoryStore.List(ctx, orgId, listParams)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(repositories.Items)).To(Equal(1))
+			Expect(*repositories.Items[0].Metadata.Name).To(Equal("oci-delta-target"))
+		})
+
 		It("List repositories by type using FieldSelector", func() {
 			// Create an OCI repository
 			spec := api.RepositorySpec{}

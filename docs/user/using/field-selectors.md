@@ -28,7 +28,7 @@ The following table lists the fields supported for filtering for each resource k
 | **Device**                      | `status.summary.status`<br/>`status.applicationsSummary.status`<br/>`status.updated.status`<br/>`status.capabilities.osMode`<br/>`lastSeen`<br/>`status.lifecycle.status` |
 | **Enrollment Request**          | `status.approval.approved`<br/>`status.certificate` |
 | **Fleet**                       | `spec.template.spec.os.image`                       |
-| **Repository**                  | `spec.type`<br/>`spec.url`                          |
+| **Repository**                  | `spec.type`<br/>`spec.url`<br/>`spec.registry`<br/>`spec.accessMode`<br/>`spec.deltaStorageTarget` |
 | **Resource Sync**               | `spec.repository`                                   |
 
 ### Examples
