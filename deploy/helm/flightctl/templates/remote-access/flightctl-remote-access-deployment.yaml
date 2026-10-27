@@ -25,6 +25,10 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecretName }}
       {{- end }}
+      {{- with .Values.global.auth.aap.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: flightctl-remote-access
           image: {{ include "flightctl.ensureOsQualifiedImage" (dict "root" . "imageName" .Values.remoteAccess.image.image) }}:{{ default .Chart.AppVersion .Values.remoteAccess.image.tag }}

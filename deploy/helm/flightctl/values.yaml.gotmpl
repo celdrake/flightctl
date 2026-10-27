@@ -113,6 +113,8 @@ global:
         - "write"
       # -- Optional prefix for org names from this provider (e.g. "aap-"). Incoming org names are exposed as prefix + name.
       organizationNamePrefix: ""
+      # -- Static host aliases for FlightCtl pods that connect to AAP. Useful when apiUrl resolves to a host loopback address.
+      hostAliases: []
       # -- TTL for AAP identity cache (Go duration string, e.g. "45s", "2m")
       identityCacheTTL: "45s"
     openshift:

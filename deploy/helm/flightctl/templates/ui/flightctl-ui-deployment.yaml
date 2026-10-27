@@ -27,6 +27,10 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.imagePullSecretName }}
       {{- end }}
+      {{- with .Values.global.auth.aap.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
       {{- include "flightctl.apiWaitInitContainer" (dict "context" .) | nindent 6 }}
       containers:

@@ -194,6 +194,19 @@
                 "clientSecret": { "type": "string", "description": "OAuth2 client secret (prefer mounting from a secret)" },
                 "enabled": { "type": "boolean", "description": "Whether the AAP provider is enabled" },
                 "organizationNamePrefix": { "type": "string", "description": "Optional prefix for organization names from this provider." },
+                "hostAliases": {
+                  "type": "array",
+                  "description": "Static host aliases for FlightCtl pods that connect to AAP.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["ip", "hostnames"],
+                    "properties": {
+                      "ip": { "type": "string" },
+                      "hostnames": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                },
                 "scopes": {
                   "type": "array",
                   "description": "List of OAuth2 scopes to request",

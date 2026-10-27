@@ -9,6 +9,10 @@ global:
     insecureSkipTlsVerify: true
     aap:
       apiUrl: "https://aap-aap-operator.apps.127.0.0.1.nip.io"
+      hostAliases:
+        - ip: "192.168.1.174"
+          hostnames:
+            - "aap-aap-operator.apps.127.0.0.1.nip.io"
       authorizationUrl: "https://aap-aap-operator.apps.127.0.0.1.nip.io/o/authorize/"
       clientId: "LzQvCACgrmcQSI39M3L95PkFXHPgC41IGyxvQ7Cs"
       enabled: true
@@ -20,3 +24,19 @@ global:
 #   --reuse-values \
 #   --values ./deploy/helm/flightctl/values.kind-aap.yaml \
 #   --kube-context kind-kind
+
+# Image builder login not working, always gets 401
+# make redeploy-imagebuilder-api
+# kubectl rollout restart deployment/flightctl-imagebuilder-api -n flightctl-external
+# kubectl rollout restart deployment/flightctl-api -n flightctl-external
+
+# kubectl patch deployment flightctl-imagebuilder-api -n flightctl-external \
+#  --type=merge \
+#  -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"192.168.1.174","hostnames":["aap-aap-operator.apps.127.0.0.1.nip.io"]}]}}}}'
+
+#kubectl patch deployment flightctl-api -n flightctl-external \
+#  --type=merge \
+#  -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"192.168.1.174","hostnames":["aap-aap-operator.apps.127.0.0.1.nip.io"]}]}}}}'
+
+# Created a user that has access to the "Default" org, but it doesn't have any permission.
+# "aap-user / pass"
