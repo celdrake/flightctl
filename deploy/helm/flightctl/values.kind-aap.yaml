@@ -40,3 +40,7 @@ global:
 
 # Created a user that has access to the "Default" org, but it doesn't have any permission.
 # "aap-user / pass"
+# https://aap-aap-operator.apps.127.0.0.1.nip.io/access/organizations/1/users?page=1&perPage=10&sort=username
+# have "aap-user" selected first, then
+# Select "assign roles" -> choose "flightctl-org-admin" (created as a role in AAP), select he
+# logout from RHEM, now the user should have all the permissions.
