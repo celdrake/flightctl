@@ -1,0 +1,22 @@
+# PoC snapshot of the current local kind + AAP demo configuration.
+# Apply this over the existing development Helm release with --reuse-values.
+global:
+  # Current host IP used by the Flightctl kind routes.
+  baseDomain: "192.168.1.174.nip.io"
+  auth:
+    type: aap
+    # The AAP demo endpoint currently presents a self-signed certificate.
+    insecureSkipTlsVerify: true
+    aap:
+      apiUrl: "https://aap-aap-operator.apps.127.0.0.1.nip.io"
+      authorizationUrl: "https://aap-aap-operator.apps.127.0.0.1.nip.io/o/authorize/"
+      clientId: "LzQvCACgrmcQSI39M3L95PkFXHPgC41IGyxvQ7Cs"
+      enabled: true
+
+# Theoretically, this should modify the existing deployment, setting AAP as the auth provider.
+# helm dependency build ./deploy/helm/flightctl
+# helm upgrade flightctl ./deploy/helm/flightctl \
+#   --namespace flightctl-external \
+#   --reuse-values \
+#   --values ./deploy/helm/flightctl/values.kind-aap.yaml \
+#   --kube-context kind-kind
