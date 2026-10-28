@@ -14,10 +14,15 @@ global:
           hostnames:
             - "aap-aap-operator.apps.127.0.0.1.nip.io"
       authorizationUrl: "https://aap-aap-operator.apps.127.0.0.1.nip.io/o/authorize/"
+      tokenUrl: "https://aap-aap-operator.apps.127.0.0.1.nip.io/o/token/"
       clientId: "LzQvCACgrmcQSI39M3L95PkFXHPgC41IGyxvQ7Cs"
       enabled: true
 
-# Theoretically, this should modify the existing deployment, setting AAP as the auth provider.
+# 1. Start the CRC cluster (requires that no device is using port 2222), then wait
+# for aap-operator to bring its pods up:
+# crc start
+
+# 2. Modify the Auth provider to use AAP instead of k8s:
 # helm dependency build ./deploy/helm/flightctl
 # helm upgrade flightctl ./deploy/helm/flightctl \
 #   --namespace flightctl-external \
@@ -25,18 +30,31 @@ global:
 #   --values ./deploy/helm/flightctl/values.kind-aap.yaml \
 #   --kube-context kind-kind
 
-# Image builder login not working, always gets 401
+# 3. Set context
+# kubectl config use-context kind-kind
+
+# 4. Restart the API so it reloads the updated config:
+# kubectl rollout restart deployment/flightctl-api -n flightctl-external
+
+# 5. Login via the CLI using the URL that has the API certificate:
+# flightctl login https://api.192.168.1.174.nip.io:3443 --web
+
+# 6. UPdate the orgId in the PoC file so the user does not get rejected.
+
+## THE BELOW STEPS SHOULD NOT BE NEEDED AFTER STEP 4.
+# NOW IMAGEBUILDER WORKS OUT OF THE BOX.
+# Image builder login workaround notes (previously returned 401):
 # make redeploy-imagebuilder-api
 # kubectl rollout restart deployment/flightctl-imagebuilder-api -n flightctl-external
 # kubectl rollout restart deployment/flightctl-api -n flightctl-external
-
+#
+# Manual host alias patches, if needed:
 # kubectl patch deployment flightctl-imagebuilder-api -n flightctl-external \
-#  --type=merge \
-#  -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"192.168.1.174","hostnames":["aap-aap-operator.apps.127.0.0.1.nip.io"]}]}}}}'
-
-#kubectl patch deployment flightctl-api -n flightctl-external \
-#  --type=merge \
-#  -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"192.168.1.174","hostnames":["aap-aap-operator.apps.127.0.0.1.nip.io"]}]}}}}'
+#   --type=merge \
+#   -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"192.168.1.174","hostnames":["aap-aap-operator.apps.127.0.0.1.nip.io"]}]}}}}'
+# kubectl patch deployment flightctl-api -n flightctl-external \
+#   --type=merge \
+#   -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"192.168.1.174","hostnames":["aap-aap-operator.apps.127.0.0.1.nip.io"]}]}}}}'
 
 # Created a user that has access to the "Default" org, but it doesn't have any permission.
 # "aap-user / pass"
